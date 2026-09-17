@@ -1,6 +1,6 @@
 # Floating Pomodoro Timer for Linux (GNOME / Wayland / X11)
 
-A feature-rich, beautiful floating Pomodoro timer built with **Python 3**, **GTK4**, **Libadwaita**, and **Cairo**.
+A feature-rich, modern floating Pomodoro timer built with **Python 3**, **GTK4**, **Libadwaita**, and **Cairo**.
 
 ---
 
@@ -36,22 +36,78 @@ A feature-rich, beautiful floating Pomodoro timer built with **Python 3**, **GTK
 
 ---
 
-## 🚀 How to Run
+## 📦 System Requirements & Dependencies
 
-### Requirements
-- Python 3.10+
-- GTK4 & Libadwaita (`python3-gi`, `gir1.2-gtk-4.0`, `gir1.2-adw-1`)
-- PyGObject & PyCairo
+- **Operating System**: Linux (Ubuntu 22.04+, Fedora 36+, Debian 12+, Arch Linux, Manjaro, Linux Mint, etc.)
+- **Desktop Environment**: GNOME Shell 40+ recommended (or any desktop supporting GTK4)
+- **Display Server**: Wayland (via Xwayland) or native X11
+- **Python**: Python 3.10 or newer
 
-### Launching
-Run the launcher script:
+---
+
+## 🛠️ Installation
+
+### 1. Install Dependencies by Distribution
+
+#### **Ubuntu / Debian / Linux Mint**
 ```bash
+sudo apt update
+sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 libnotify-bin pulseaudio-utils x11-utils
+```
+
+#### **Fedora / RHEL**
+```bash
+sudo dnf install python3-gobject python3-cairo gtk4 libadwaita libnotify pulseaudio-utils xorg-x11-utils
+```
+
+#### **Arch Linux / Manjaro**
+```bash
+sudo pacman -S python-gobject python-cairo gtk4 libadwaita libnotify pulseaudio-utils xorg-xprop
+```
+
+---
+
+## 🚀 How to Run on a New System
+
+### Option A: Run Directly (Portable)
+Navigate to the project folder and execute the launcher script:
+```bash
+cd pomodoro-timer
+chmod +x run.sh
 ./run.sh
 ```
-Or run directly with python:
+Or run directly with Python:
 ```bash
 python3 pomodoro.py
 ```
+
+---
+
+### Option B: Install into System (Application Menu & Shortcut)
+
+To make the app appear in your GNOME / system application launcher menu with its tomato icon:
+
+1. **Copy application files to `~/.local/share/pomodoro/`**:
+   ```bash
+   mkdir -p ~/.local/share/pomodoro
+   cp -r * ~/.local/share/pomodoro/
+   chmod +x ~/.local/share/pomodoro/run.sh ~/.local/share/pomodoro/pomodoro.py
+   ```
+
+2. **Install Desktop Entry**:
+   ```bash
+   mkdir -p ~/.local/share/applications ~/.local/share/icons/hicolor/scalable/apps
+   cp pomodoro.desktop ~/.local/share/applications/
+   cp pomodoro.svg ~/.local/share/icons/hicolor/scalable/apps/
+   ```
+
+3. **Update Icon & Desktop Database**:
+   ```bash
+   gtk-update-icon-cache ~/.local/share/icons/hicolor/ 2>/dev/null || true
+   update-desktop-database ~/.local/share/applications/ 2>/dev/null || true
+   ```
+
+Now you can launch **Pomodoro Timer** directly from your application launcher or search `Pomodoro` in your desktop menu!
 
 ---
 
@@ -59,10 +115,9 @@ python3 pomodoro.py
 
 ```
 pomodoro-timer/
-├── pomodoro.py       # Main GTK4 / Libadwaita application code
+├── pomodoro.py       # Main GTK4 / Libadwaita application source code
 ├── pomodoro.svg      # Custom tomato application icon
 ├── run.sh            # Launcher script (configures GDK_BACKEND=x11)
 ├── pomodoro.desktop  # Desktop launcher entry
-└── README.md         # Project documentation
+└── README.md         # Documentation and setup guide
 ```
-# pomodoro-for-gnome
