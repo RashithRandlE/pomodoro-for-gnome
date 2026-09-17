@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Pomodoro Timer
+Comment=Floating Pomodoro timer with task scoring
+Exec=/home/randil/.local/share/pomodoro/run.sh
+Icon=pomodoro
+Terminal=false
+Type=Application
+Categories=Utility;Productivity;
+Keywords=pomodoro;timer;focus;productivity;
+StartupNotify=true
