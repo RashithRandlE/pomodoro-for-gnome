@@ -2,6 +2,10 @@
 
 A feature-rich, modern floating Pomodoro timer built with **Python 3**, **GTK4**, **Libadwaita**, and **Cairo**.
 
+<p align="center">
+  <img src="assets/compact-pill.png" alt="Floating Pomodoro Mini Pill" width="480" />
+</p>
+
 ---
 
 ## ✨ Features
@@ -16,6 +20,12 @@ A feature-rich, modern floating Pomodoro timer built with **Python 3**, **GTK4**
 - **Interactive Draggable Knob**: Grab and drag the handle around the clock to intuitively change the session duration.
 - **Custom Time up to 180+ min**: Set any custom duration via the draggable ring, preset buttons (`[25]`, `[45]`, `[60]`), or the `[Custom]` popover.
 - **Configurable Max Duration**: In **Settings**, adjust the maximum dial limit from 30 up to 360 minutes (defaults to 180 min).
+
+<p align="center">
+  <img src="assets/timer-dial.png" alt="Interactive Timer Dial" width="380" />
+  &nbsp;&nbsp;
+  <img src="assets/timer-running.png" alt="Timer Running with Liquid Tip" width="380" />
+</p>
 
 ### 3. 🌊 Gentle Water Progress Bar
 - **Liquid Water Ripple**: Subtle, calming liquid shake along the leading edge of the progress bar to show fluid movement.
@@ -33,6 +43,12 @@ A feature-rich, modern floating Pomodoro timer built with **Python 3**, **GTK4**
 - **Task List**: Add, prioritize (High/Medium/Low), reorder, track, and complete daily tasks.
 - **Gamified Scoring**: Points for completed pomodoros (+10) and tasks (+25), streak multipliers, and achievement badges.
 - **Pause Budget**: 2-minute editable pause budget per session with deductions for abandoning sessions.
+
+<p align="center">
+  <img src="assets/tasks-page.png" alt="Task Management Page" width="380" />
+  &nbsp;&nbsp;
+  <img src="assets/stats-page.png" alt="Stats and Achievements Page" width="380" />
+</p>
 
 ---
 
@@ -115,9 +131,15 @@ Now you can launch **Pomodoro Timer** directly from your application launcher or
 
 ```
 pomodoro-timer/
-├── pomodoro.py       # Main GTK4 / Libadwaita application source code
-├── pomodoro.svg      # Custom tomato application icon
-├── run.sh            # Launcher script (configures GDK_BACKEND=x11)
-├── pomodoro.desktop  # Desktop launcher entry
-└── README.md         # Documentation and setup guide
+├── assets/
+│   ├── compact-pill.png  # Floating mini bar preview screenshot
+│   ├── timer-dial.png    # Interactive draggable chronometer dial
+│   ├── timer-running.png # Countdown progress with liquid tip
+│   ├── tasks-page.png    # Task management view
+│   └── stats-page.png    # Gamified stats & achievements view
+├── pomodoro.py           # Main GTK4 / Libadwaita application source code
+├── pomodoro.svg          # Custom tomato application icon
+├── run.sh                # Launcher script (configures GDK_BACKEND=x11)
+├── pomodoro.desktop      # Desktop launcher entry
+└── README.md             # Documentation and setup guide
 ```
