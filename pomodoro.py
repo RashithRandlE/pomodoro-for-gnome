@@ -187,6 +187,52 @@ window.compact-win {
     border: 1px solid alpha(#e74c3c, 0.35);
     color: #e74c3c;
 }
+
+.compact-choice-btn {
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 6px;
+    min-height: 26px;
+    box-shadow: none;
+}
+
+.main-choice-btn {
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 999px;
+}
+
+.choice-breath {
+    background: alpha(#2ecc71, 0.18);
+    border: 1px solid alpha(#2ecc71, 0.45);
+    color: #2ecc71;
+}
+.choice-breath:hover {
+    background: alpha(#2ecc71, 0.32);
+    color: #ffffff;
+}
+
+.choice-break {
+    background: alpha(#3498db, 0.18);
+    border: 1px solid alpha(#3498db, 0.45);
+    color: #3498db;
+}
+.choice-break:hover {
+    background: alpha(#3498db, 0.32);
+    color: #ffffff;
+}
+
+.choice-next {
+    background: alpha(#e74c3c, 0.18);
+    border: 1px solid alpha(#e74c3c, 0.45);
+    color: #e74c3c;
+}
+.choice-next:hover {
+    background: alpha(#e74c3c, 0.32);
+    color: #ffffff;
+}
 """
 
 # ─── Default data ────────────────────────────────────────────────────────────
@@ -454,6 +500,9 @@ class PomodoroApp(Adw.Application):
         self._main_win = None
         self._compact_win = None
 
+        # Completion prompt state (when pomodoro finishes)
+        self.pending_choice = False
+
     # ── daily reset ──────────────────────────────────────────────────────
     def _check_new_day(self):
         today = str(datetime.date.today())
@@ -519,6 +568,7 @@ class PomodoroApp(Adw.Application):
 
     # ── timer controls ───────────────────────────────────────────────────
     def start_timer(self):
+        self.pending_choice = False
         if self.is_running:
             return
         # resume from pause
@@ -548,6 +598,7 @@ class PomodoroApp(Adw.Application):
 
     def abandon_session(self):
         """Give up the current work session. −15 pts."""
+        self.pending_choice = False
         self._stop_all()
         self.stop_box_breathing()
         self.is_paused = False
@@ -562,6 +613,7 @@ class PomodoroApp(Adw.Application):
         """End the current break early (no penalty)."""
         if self.state not in ("short_break", "long_break"):
             return
+        self.pending_choice = False
         self._stop_all()
         self.stop_box_breathing()
         self._advance_after_break()
@@ -667,26 +719,71 @@ class PomodoroApp(Adw.Application):
 
             self._check_achievements()
 
-            if self.session_count >= 4:
-                self.state = "long_break"
-                self.session_count = 0
-                self._notify("Long break! ☕",
-                             "4 sessions done — take a well-earned rest.")
-            else:
-                self.state = "short_break"
-                self._notify("Short break! 🌿",
-                             f"Session {self.session_count}/4 complete.")
-            self.time_left = self.duration_for(self.state)
-            if self.data["settings"].get("box_breathing_breaks", True):
-                self.start_box_breathing()
+            self.stop_box_breathing()
+            self.pending_choice = True
+            self._notify("Pomodoro complete! 🍅",
+                         f"Session {self.session_count}/4 done — choose what's next!")
             DataManager.save(self.data)
             self._refresh_all()
-            if self.data["settings"]["auto_start"]:
-                self.start_timer()
         else:
             self._advance_after_break()
 
+    def choose_breathing(self):
+        """Start a guided box breathing break session."""
+        self.pending_choice = False
+        if self.session_count >= 4:
+            self.state = "long_break"
+            self.session_count = 0
+            title = "Long break! 🫁"
+            body = "4 sessions done — relax with Box Breathing."
+        else:
+            self.state = "short_break"
+            title = "Short break! 🫁"
+            body = f"Session {self.session_count}/4 complete — breathe & relax."
+        self.time_left = self.duration_for(self.state)
+        self.start_box_breathing()
+        self.start_timer()
+        self._notify(title, body)
+        DataManager.save(self.data)
+        self._refresh_all()
+
+    def choose_break(self):
+        """Start a regular break timer without breathing animation."""
+        self.pending_choice = False
+        self.stop_box_breathing()
+        if self.session_count >= 4:
+            self.state = "long_break"
+            self.session_count = 0
+            title = "Long break! ☕"
+            body = "4 sessions done — take a well-earned rest."
+        else:
+            self.state = "short_break"
+            title = "Short break! ☕"
+            body = f"Session {self.session_count}/4 complete."
+        self.time_left = self.duration_for(self.state)
+        self.start_timer()
+        self._notify(title, body)
+        DataManager.save(self.data)
+        self._refresh_all()
+
+    def choose_next_session(self):
+        """Skip break and start the next pomodoro work session immediately."""
+        self.pending_choice = False
+        self.stop_box_breathing()
+        if self.session_count >= 4:
+            self.session_count = 1
+        else:
+            self.session_count += 1
+        self.state = "work"
+        self.pause_used = 0
+        self.time_left = self.duration_for("work")
+        self.start_timer()
+        self._notify("Back to work! 🍅", "Next session started — let's focus!")
+        DataManager.save(self.data)
+        self._refresh_all()
+
     def _advance_after_break(self):
+        self.pending_choice = False
         self.stop_box_breathing()
         self.state = "work"
         self.session_count += 1
@@ -961,12 +1058,12 @@ class MainWindow(Adw.ApplicationWindow):
         page.append(ov)
 
         # controls row
-        ctrls = Gtk.Box(spacing=14, halign=Gtk.Align.CENTER)
+        self._ctrls = Gtk.Box(spacing=14, halign=Gtk.Align.CENTER)
 
         self._act_btn = Gtk.Button(css_classes=["circular"])
         self._act_btn.set_size_request(44, 44)
         self._act_btn.connect("clicked", self._on_action)
-        ctrls.append(self._act_btn)
+        self._ctrls.append(self._act_btn)
 
         self._play_btn = Gtk.Button(
             icon_name="media-playback-start-symbolic",
@@ -974,9 +1071,42 @@ class MainWindow(Adw.ApplicationWindow):
         )
         self._play_btn.set_size_request(56, 56)
         self._play_btn.connect("clicked", self._on_play_pause)
-        ctrls.append(self._play_btn)
+        self._ctrls.append(self._play_btn)
 
-        page.append(ctrls)
+        page.append(self._ctrls)
+
+        # Choice row when pomodoro ends
+        self._choice_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL, spacing=10,
+            halign=Gtk.Align.CENTER, margin_top=4, margin_bottom=4,
+            visible=False,
+        )
+
+        self._main_breath_btn = Gtk.Button(
+            label="🫁 Breathing Session",
+            css_classes=["main-choice-btn", "choice-breath"],
+            tooltip_text="Start a 4-4-4-4 Box Breathing relaxation",
+        )
+        self._main_breath_btn.connect("clicked", lambda _: self.app.choose_breathing())
+        self._choice_box.append(self._main_breath_btn)
+
+        self._main_break_btn = Gtk.Button(
+            label="☕ 5m Break",
+            css_classes=["main-choice-btn", "choice-break"],
+            tooltip_text="Start a 5-minute break timer",
+        )
+        self._main_break_btn.connect("clicked", lambda _: self.app.choose_break())
+        self._choice_box.append(self._main_break_btn)
+
+        self._main_next_btn = Gtk.Button(
+            label="🍅 Next Session",
+            css_classes=["main-choice-btn", "choice-next"],
+            tooltip_text="Start the next Pomodoro focus session",
+        )
+        self._main_next_btn.connect("clicked", lambda _: self.app.choose_next_session())
+        self._choice_box.append(self._main_next_btn)
+
+        page.append(self._choice_box)
 
         # pause budget label
         self._pause_lbl = Gtk.Label(
@@ -1225,6 +1355,14 @@ class MainWindow(Adw.ApplicationWindow):
 
         xc, yc = w / 2, h / 2
         radius = 86
+        if self.app.pending_choice:
+            cr.set_line_width(8)
+            cr.set_line_cap(cairo.LINE_CAP_ROUND)
+            cr.arc(xc, yc, radius, 0, 2 * math.pi)
+            cr.set_source_rgba(0.95, 0.65, 0.20, 0.90)
+            cr.stroke()
+            return
+
         max_d = self.app.data["settings"].get("max_duration", 180)
         cur_work_mins = self.app.data["settings"].get("work_duration", 25)
         r, g, b = STATE_COLORS.get(self.app.state, (0.5, 0.5, 0.5))
@@ -1435,7 +1573,7 @@ class MainWindow(Adw.ApplicationWindow):
             self._timer_da.queue_draw()
 
     def _on_dial_drag_begin(self, gesture, start_x, start_y):
-        if self.app.box_breathing_active:
+        if self.app.box_breathing_active or self.app.pending_choice:
             gesture.set_state(Gtk.EventSequenceState.DENIED)
             return
 
@@ -1498,6 +1636,7 @@ class MainWindow(Adw.ApplicationWindow):
         self._set_custom_duration(target_mins, save=False)
 
     def _set_custom_duration(self, mins, save=True):
+        self.app.pending_choice = False
         max_d = self.app.data["settings"].get("max_duration", 180)
         mins = max(1, min(max_d, mins))
         self._updating = True
@@ -1644,6 +1783,12 @@ class MainWindow(Adw.ApplicationWindow):
 
     # ── refresh methods ──────────────────────────────────────────────────
     def refresh_timer(self):
+        if self.app.pending_choice:
+            self._time_lbl.set_text("Done!")
+            self._active_lbl.set_text("Ready for next step")
+            self._timer_da.queue_draw()
+            return
+
         if self.app.box_breathing_active:
             self.refresh_breath_labels()
             self._timer_da.queue_draw()
@@ -1673,6 +1818,22 @@ class MainWindow(Adw.ApplicationWindow):
         self._active_lbl.set_text(st["face"])
 
     def refresh_controls(self):
+        if hasattr(self, "_choice_box"):
+            if self.app.pending_choice:
+                self._choice_box.set_visible(True)
+                self._ctrls.set_visible(False)
+                s_mins = self.app.data["settings"].get("short_break", 5)
+                if self.app.session_count >= 4:
+                    l_mins = self.app.data["settings"].get("long_break", 15)
+                    self._main_break_btn.set_label(f"☕ {l_mins}m Break")
+                    self._main_break_btn.set_tooltip_text(f"Start a {l_mins}-minute long break")
+                else:
+                    self._main_break_btn.set_label(f"☕ {s_mins}m Break")
+                    self._main_break_btn.set_tooltip_text(f"Start a {s_mins}-minute short break")
+            else:
+                self._choice_box.set_visible(False)
+                self._ctrls.set_visible(True)
+
         icon = ("media-playback-pause-symbolic" if self.app.is_running
                 else "media-playback-start-symbolic")
         self._play_btn.set_icon_name(icon)
@@ -1710,6 +1871,9 @@ class MainWindow(Adw.ApplicationWindow):
             self._pause_lbl.set_visible(False)
 
     def refresh_state_label(self):
+        if self.app.pending_choice:
+            self._state_lbl.set_text("🎉 Pomodoro Complete! Choose what's next:")
+            return
         if self.app.box_breathing_active:
             st = BoxBreathingManager.get_state(self.app.breath_start_time)
             self._state_lbl.set_text(f"🫁 Box Breathing · {st['phase']} · Cycle {st['cycle']}")
@@ -1866,7 +2030,7 @@ class CompactWindow(Gtk.Window):
         app.add_window(self)
 
         self.set_decorated(False)
-        self.set_default_size(320, 48)
+        self.set_default_size(360, 48)
         self.set_resizable(False)
         self.set_icon_name("pomodoro")
         self.add_css_class("compact-win")
@@ -1885,39 +2049,44 @@ class CompactWindow(Gtk.Window):
         self._canvas.set_draw_func(self._draw)
         overlay.set_child(self._canvas)
 
-        # Overlaid content
-        hbox = Gtk.Box(
+        # Stack allows smooth transitions between timer view and pomodoro end prompt view
+        self._stack = Gtk.Stack()
+        self._stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        self._stack.set_transition_duration(150)
+
+        # ── Timer box (normal mode) ──
+        self._timer_box = Gtk.Box(
             spacing=6, margin_start=14, margin_end=8,
             halign=Gtk.Align.FILL, valign=Gtk.Align.CENTER,
         )
 
         pomo_icon = Gtk.Image.new_from_icon_name("pomodoro")
         pomo_icon.set_pixel_size(18)
-        hbox.append(pomo_icon)
+        self._timer_box.append(pomo_icon)
 
         self._dot = Gtk.Label(label="●", css_classes=["compact-time"])
-        hbox.append(self._dot)
+        self._timer_box.append(self._dot)
 
         self._time_lbl = Gtk.Label(
             label="25:00", css_classes=["compact-time"],
         )
-        hbox.append(self._time_lbl)
+        self._timer_box.append(self._time_lbl)
 
-        hbox.append(Gtk.Label(label="┊", css_classes=["compact-sep"]))
+        self._timer_box.append(Gtk.Label(label="┊", css_classes=["compact-sep"]))
 
         self._task_lbl = Gtk.Label(
             css_classes=["compact-task"],
             hexpand=True, halign=Gtk.Align.START,
-            ellipsize=Pango.EllipsizeMode.END, max_width_chars=16,
+            ellipsize=Pango.EllipsizeMode.END, max_width_chars=20,
         )
-        hbox.append(self._task_lbl)
+        self._timer_box.append(self._task_lbl)
 
         self._play_btn = Gtk.Button(
             icon_name="media-playback-start-symbolic",
             css_classes=["flat", "circular", "compact-btn"],
         )
         self._play_btn.connect("clicked", self._on_play)
-        hbox.append(self._play_btn)
+        self._timer_box.append(self._play_btn)
 
         exp = Gtk.Button(
             icon_name="view-fullscreen-symbolic",
@@ -1925,9 +2094,54 @@ class CompactWindow(Gtk.Window):
             tooltip_text="Expand",
         )
         exp.connect("clicked", lambda _: self.app.show_expanded())
-        hbox.append(exp)
+        self._timer_box.append(exp)
 
-        overlay.add_overlay(hbox)
+        self._stack.add_named(self._timer_box, "timer")
+
+        # ── Prompt box (when Pomodoro finishes) ──
+        self._prompt_box = Gtk.Box(
+            spacing=6, margin_start=8, margin_end=8,
+            halign=Gtk.Align.FILL, valign=Gtk.Align.CENTER,
+        )
+
+        self._prompt_breath_btn = Gtk.Button(
+            label="🫁 Breathe",
+            css_classes=["compact-choice-btn", "choice-breath"],
+            tooltip_text="Start a 4-4-4-4 Box Breathing relaxation",
+            hexpand=True,
+        )
+        self._prompt_breath_btn.connect("clicked", lambda _: self.app.choose_breathing())
+        self._prompt_box.append(self._prompt_breath_btn)
+
+        self._prompt_break_btn = Gtk.Button(
+            label="☕ 5m Break",
+            css_classes=["compact-choice-btn", "choice-break"],
+            tooltip_text="Start a 5-minute break timer",
+            hexpand=True,
+        )
+        self._prompt_break_btn.connect("clicked", lambda _: self.app.choose_break())
+        self._prompt_box.append(self._prompt_break_btn)
+
+        self._prompt_next_btn = Gtk.Button(
+            label="🍅 Next",
+            css_classes=["compact-choice-btn", "choice-next"],
+            tooltip_text="Start the next Pomodoro session",
+            hexpand=True,
+        )
+        self._prompt_next_btn.connect("clicked", lambda _: self.app.choose_next_session())
+        self._prompt_box.append(self._prompt_next_btn)
+
+        exp2 = Gtk.Button(
+            icon_name="view-fullscreen-symbolic",
+            css_classes=["flat", "circular", "compact-btn"],
+            tooltip_text="Expand",
+        )
+        exp2.connect("clicked", lambda _: self.app.show_expanded())
+        self._prompt_box.append(exp2)
+
+        self._stack.add_named(self._prompt_box, "prompt")
+
+        overlay.add_overlay(self._stack)
 
     # ── events ───────────────────────────────────────────────────────────
     def _on_close(self, _w):
@@ -1945,6 +2159,21 @@ class CompactWindow(Gtk.Window):
 
     # ── refresh ──────────────────────────────────────────────────────────
     def refresh(self):
+        if self.app.pending_choice:
+            s_mins = self.app.data["settings"].get("short_break", 5)
+            if self.app.session_count >= 4:
+                l_mins = self.app.data["settings"].get("long_break", 15)
+                self._prompt_break_btn.set_label(f"☕ {l_mins}m Break")
+                self._prompt_break_btn.set_tooltip_text(f"Start a {l_mins}-minute long break")
+            else:
+                self._prompt_break_btn.set_label(f"☕ {s_mins}m Break")
+                self._prompt_break_btn.set_tooltip_text(f"Start a {s_mins}-minute short break")
+            self._stack.set_visible_child_name("prompt")
+            self._canvas.queue_draw()
+            return
+
+        self._stack.set_visible_child_name("timer")
+
         if self.app.box_breathing_active:
             self.refresh_breath_labels()
             self._play_btn.set_icon_name("media-playback-stop-symbolic")
@@ -2008,7 +2237,11 @@ class CompactWindow(Gtk.Window):
 
         # Check if Box Breathing is active vs normal timer
         is_breathing = self.app.box_breathing_active
-        if is_breathing:
+        r_c, g_c, b_c = (0.5, 0.5, 0.5)
+        if self.app.pending_choice:
+            fill_w = 0.0
+            is_anim = False
+        elif is_breathing:
             st = BoxBreathingManager.get_state(self.app.breath_start_time)
             r_c, g_c, b_c = st["color"]
             if st["phase_idx"] == 0:    # Inhale: ocean waves swelling forward
@@ -2073,7 +2306,10 @@ class CompactWindow(Gtk.Window):
 
         # Subtle border
         _pill(cr, m + 0.5, m + 0.5, pw - 1, ph - 1, r - 0.5)
-        if is_breathing:
+        if self.app.pending_choice:
+            cr.set_source_rgba(0.95, 0.65, 0.20, 0.50)
+            cr.set_line_width(1.5)
+        elif is_breathing:
             cr.set_source_rgba(r_c, g_c, b_c, 0.45 + 0.25 * st["scale"])
             cr.set_line_width(1.5)
         else:
